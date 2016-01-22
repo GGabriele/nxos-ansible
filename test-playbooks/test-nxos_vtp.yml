@@ -1,0 +1,131 @@
+---
+
+- name: TESTING NXOS_VTP
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: PREPARING THE DEVICE DISABLING VTP
+    nxos_command: command='no feature vtp ;' host={{ inventory_hostname }} type=config
+
+  - name: ENSURE FAILS DUE TO FEATURE CURRENTLY NOT ENABLED
+    nxos_vtp: domain=ntc state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 1
+    assert:
+      that:
+        - data | failed
+
+  - name: PREPARING THE DEVICE ENABLING VTP
+    nxos_command: command='feature vtp ;' host={{ inventory_hostname }} type=config
+
+  - name: ENSURE VTP DOMAIN IS CONFIGURED
+    nxos_vtp: domain=ntc state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['domain'] == 'ntc'
+        - data.end_state['version'] == '1'
+
+  - name: ENSURE VTP DOMAIN IS CONFIGURED WITH PROPER VERSION
+    nxos_vtp: domain=ntc state=present version=2 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['domain'] == 'ntc'
+        - data.end_state['version'] == '2'
+
+  - name: ENSURE VTP DOMAIN IS CONFIGURED WITH PROPER PASSWORD
+    nxos_vtp: vtp_password=ntc_password state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['domain'] == 'ntc'
+        - data.end_state['version'] == '2'
+        - data.end_state['vtp_password'] == 'ntc_password'
+
+  - name: ENSURE VTP DOMAIN IS CONFIGURED
+    nxos_vtp: domain=new_ntc vtp_password=new_pwd version=2 state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['domain'] == 'new_ntc'
+        - data.end_state['version'] == '2'
+        - data.end_state['vtp_password'] == 'new_pwd'
+
+  - name: TRY TO RECONFIGURE THE SAME VTP DOMAIN
+    nxos_vtp: domain=new_ntc vtp_password=new_pwd version=2 state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['domain'] == 'new_ntc'
+        - data.existing['version'] == '2'
+        - data.existing['vtp_password'] == 'new_pwd'
+
+  - name: TRY TO REMOVE WRONG PASSWORD. ENSURE IT FAILS
+    nxos_vtp: vtp_password=test state=absent host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 7
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE VTP PASSWORD IS REMOVED
+    nxos_vtp: vtp_password=new_pwd state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 8
+    assert:
+      that:
+        - data.changed == true
+
+  - name: ENSURE FAILS DUE TO MISSING PARAMS
+    nxos_vtp: state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 9
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_vtp: domain=new_ntc state=absent host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 10
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_vtp: version=2 state=absent host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 11
+    assert:
+      that:
+        - data | failed
