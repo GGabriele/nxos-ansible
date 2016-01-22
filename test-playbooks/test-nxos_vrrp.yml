@@ -1,0 +1,163 @@
+---
+
+- name: TESTING NXOS_VRRP
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE VRRP GROUP 100 IS CONFIGURED
+    nxos_vrrp: interface=vlan10 group=100 vip=10.1.100.1 state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == "100"
+        - data.end_state['vip'] == '10.1.100.1'
+
+  - name: ENSURE VRRP IS CONFIGURED WITH PROPER AUTHENTICATION
+    nxos_vrrp: interface=vlan10 group=100 vip=10.1.100.1 authentication=testing host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['authentication'] == 'testing'
+
+  - name: TRY TO RECONFIGURE VRRP GROP 100
+    nxos_vrrp: interface=vlan10 group=100 vip=10.1.100.1 authentication=testing host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['authentication'] == 'testing'
+        - data.existing['group'] == "100"
+        - data.existing['vip'] == '10.1.100.1'
+
+  - name: ENSURE PROPER VIP IS USED FOR VRRP GROUP 100
+    nxos_vrrp: interface=vlan10 group=100 vip=10.1.200.1 authentication=testing host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['authentication'] == 'testing'
+        - data.end_state['group'] == "100"
+        - data.end_state['vip'] == '10.1.200.1'
+
+  - name: ENSURE VRRP GROUP 150 IS CONFIGURED
+    nxos_vrrp: interface=vlan10 group=150 vip=10.1.15.1 authentication=testing state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['authentication'] == 'testing'
+        - data.end_state['group'] == "150"
+        - data.end_state['vip'] == '10.1.15.1'
+
+  - name: PREPARE THE DEVICE
+    nxos_command: command='no feature vrrp' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE IT FAILS DUE TO UNABLED FEATURE
+    nxos_vrrp: interface=vlan10 group=100 vip=10.1.100.1 authentication=testing host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 6
+    assert:
+      that:
+        - data | failed
+
+  - name: PREPARE THE DEVICE
+    nxos_command: command='feature vrrp' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE IT FAILS BECAUSE INTERFACE DOES NOT EXIST
+    nxos_vrrp: interface=loopback17 group=700 vip=10.1.70.1 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 7
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO LAYER 2 PORT
+    nxos_vrrp: interface=port-channel100 group=100 vip=10.10.10.1  host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 8
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE VRRP IS CONFIGURED WITH PROPER AUTHENTICATION AND PRIORITY
+    nxos_vrrp: interface=vlan10 group=100 vip=10.1.100.1 authentication=testing priority=10 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 9
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == '100'
+        - data.end_state['vip'] == '10.1.100.1'
+        - data.end_state['priority'] == '10'
+        - data.end_state['authentication'] == 'testing'
+
+  - name: ENSURE IT FAILS DUE TO MISSING PARAM
+    nxos_vrrp: interface=vlan10 group=200 state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 10
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING INTERFACE PARAM
+    nxos_vrrp: group=200 state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 11
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING GROUP PARAM
+    nxos_vrrp: interface=vlan10 group=200 state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE VRRP IS NOT CONFIGURED
+    nxos_vrrp: interface=vlan10 group=100 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 13
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state == {}
+
+  - name: ENSURE AGAIN VRRP IS NOT CONFIGURED
+    nxos_vrrp: interface=vlan10 group=100 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 14
+    assert:
+      that:
+        - data.changed == false
