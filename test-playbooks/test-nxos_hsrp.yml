@@ -1,0 +1,248 @@
+---
+
+- name: TESTING NXOS_HSRP
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE HSRP GROUP 30 IS CONFIGURED
+    nxos_hsrp: group=30 vip=10.30.1.1 interface=vlan10 state=present host={{ inventory_hostname }}
+    register: data
+
+  - debug: var=data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == "30"
+        - data.end_state['vip'] == '10.30.1.1'
+
+  - name: ENSURE HSRP IS CONFIGURED WITH PROPER AUTHENTICATION
+    nxos_hsrp: group=30 vip=10.30.1.1 interface=vlan10 auth_type=md5 auth_string=CISCO host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == "30"
+        - data.end_state['vip'] == '10.30.1.1'
+        - data.end_state['auth_string'] == 'CISCO'
+        - data.end_state['auth_type'] == 'md5'
+
+  - name: TRY TO RECONFIGURE HSRP GROP 30
+    nxos_hsrp: group=30 vip=10.30.1.1 interface=vlan10 auth_type=md5 auth_string=CISCO host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['group'] == "30"
+        - data.existing['vip'] == '10.30.1.1'
+        - data.existing['auth_string'] == 'CISCO'
+        - data.existing['auth_type'] == 'md5'
+
+  - name: ENSURE PROPER VIP IS USED FOR HSRP GROUP 30
+    nxos_hsrp: group=30 vip=10.30.30.1 interface=vlan10 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == "30"
+        - data.end_state['vip'] == '10.30.30.1'
+
+  - name: ENSURE HSRP GROUP 40 IS CONFIGURED
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 auth_type=text auth_string=testing host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['auth_type'] == 'text'
+        - data.end_state['group'] == "40"
+        - data.end_state['vip'] == '10.40.1.1'
+
+  - name: PREPARE THE DEVICE
+    nxos_command: command='no feature hsrp' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE IT FAILS DUE TO UNABLED FEATURE
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 priority=150 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 6
+    assert:
+      that:
+        - data | failed
+
+  - name: PREPARE THE DEVICE
+    nxos_command: command='feature hsrp' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE IT FAILS BECAUSE INTERFACE DOES NOT EXIST
+    nxos_hsrp: interface=loopback17 group=50 vip=10.1.70.1 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 7
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO LAYER 2 PORT
+    nxos_hsrp: interface=port-channel100 group=50 vip=10.10.10.1 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 8
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE HSRP IS CONFIGURED WITH PROPER AUTHENTICATION AND PRIORITY
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 auth_type=text auth_string=new_test priority=50 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 9
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == '40'
+        - data.end_state['vip'] == '10.40.1.1'
+        - data.end_state['priority'] == '50'
+        - data.end_state['auth_string'] == 'new_test'
+        - data.end_state['auth_type'] == 'text'
+
+  - name: CHANGE PRIORITY VALUE
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 priority=60 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 10
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == '40'
+        - data.end_state['vip'] == '10.40.1.1'
+        - data.end_state['priority'] == '60'
+        - data.end_state['auth_string'] == 'new_test'
+        - data.end_state['auth_type'] == 'text'
+
+  - name: ENSURE HSRP IS CONFIGURED WITH VERSION 1
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 version=1 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 11
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == '40'
+        - data.end_state['vip'] == '10.40.1.1'
+        - data.end_state['version'] == '1'
+
+  - name: ENSURE IT FAILS DUE TO WRONG PARAMS COMBINATION
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 version=1 auth_type=md5 auth_string=new_test host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE HSRP IS CONFIGURED WITH MD5 AUTHENTICATION
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 version=2 auth_type=md5 auth_string=new_test host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 13
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['auth_string'] == 'new_test'
+        - data.end_state['auth_type'] == 'md5'
+        - data.end_state['version'] == '2'
+
+  - name: ENSURE IT FAILS DUE TO WRONG PARAMS COMBINATION
+    nxos_hsrp: group=40 vip=10.40.1.1 interface=vlan10 version=1 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 14
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING PARAM
+    nxos_hsrp: interface=vlan10 group=40 vip=10.40.1.1 state=present auth_type=md5 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 15
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING PARAM
+    nxos_hsrp: interface=vlan10 group=40 vip=10.40.1.1 state=present auth_string=fail host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 16
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING PARAM
+    nxos_hsrp: interface=vlan10 group=60 state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 17
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING INTERFACE PARAM
+    nxos_hsrp: group=60 state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 18
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING GROUP PARAM
+    nxos_hsrp: interface=vlan10 state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 19
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE HSRP IS NOT CONFIGURED
+    nxos_hsrp: interface=vlan10 group=40 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 20
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state == {}
+
+  - name: ENSURE AGAIN HSRP IS NOT CONFIGURED
+    nxos_hsrp: interface=vlan10 group=40 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 21
+    assert:
+      that:
+        - data.changed == false
