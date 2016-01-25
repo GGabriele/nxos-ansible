@@ -1,0 +1,318 @@
+---
+
+- name: TESTING NXOS_PORTCHANNEL
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE PORTCHANNEL11 IS CONFIGURED WITH ON MODE
+    nxos_portchannel:
+      group: 11
+      members: ['Ethernet1/6','Ethernet1/7']
+      mode: 'on'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.end_state['mode'] == 'on'
+
+  - name: ENSURE PORTCHANNEL12 IS CONFIGURED WITH ON MODE
+    nxos_portchannel:
+      group: 12
+      members: ['Ethernet2/5','Ethernet2/6']
+      mode: 'on'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.end_state['mode'] == 'on'
+
+  - name: ENSURE PORTCHANNEL100 IS CONFIGURED WITH ON MODE
+    nxos_portchannel:
+      group: 100
+      members: ['Ethernet1/28','Ethernet1/29']
+      mode: 'on'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.end_state['mode'] == 'on'
+
+  - name: PREPARE THE DEVICE
+    nxos_command: command='no feature lacp ;' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE IT FAILS DUE TO UNABLED LACP FEATURE AND MODE=PASSIVE
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2']
+      mode: 'passive'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+    ignore_errors: true
+
+  - name: TEST 4
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNABLED LACP FEATURE AND MODE=ACTIVE
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2']
+      mode: 'active'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+    ignore_errors: true
+
+  - name: TEST 5
+    assert:
+      that:
+        - data | failed
+
+  - name: PREPARE THE DEVICE
+    nxos_command: command='feature lacp ;' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE PORTCHANNEL99 IS PRESENT ON THE DEVICE
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2']
+      mode: 'passive'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == '99'
+        - data.end_state['mode'] == 'passive'
+        - "'Ethernet1/1' in data.end_state.get('members')"
+        - "'Ethernet1/2' in data.end_state.get('members')"
+
+  - name: ADDING A MEMBER TO PORTCHANNEL99
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2', 'Ethernet1/3']
+      mode: 'passive'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 7
+    assert:
+      that:
+        - data.changed == true
+        - "'Ethernet1/3' in data.end_state.get('members')"
+
+  - name: ATTEMPT TO RECONFIGURE PORTCHANNEL99
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2', 'Ethernet1/3']
+      mode: 'passive'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 8
+    assert:
+      that:
+        - data.changed == false
+
+  - name: MODIFY PORTCHANNEL99 MODE TO ACTIVE
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2', 'Ethernet1/3']
+      mode: 'active'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 9
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'active'
+
+  - name: MODIFY PORTCHANNEL99 MODE TO ON
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2', 'Ethernet1/3']
+      mode: 'on'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 10
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'on'
+
+  - name: ENSURE PORTCHANNEL11 IS CONFIGURED WITH PROPER MODE
+    nxos_portchannel:
+      group: 11
+      members: ['Ethernet1/6','Ethernet1/7']
+      mode: 'active'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 11
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'active'
+
+  - name: ENSURE PORTCHANNEL12 IS PRESENT ON THE DEVICE
+    nxos_portchannel:
+      group: 12
+      members: ['Ethernet2/5','Ethernet2/6']
+      mode: 'active'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 12
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'active'
+
+  - name: ENSURE PORTCHANNEL100 IS PRESENT ON THE DEVICE
+    nxos_portchannel:
+      group: 100
+      members: ['Ethernet1/28','Ethernet1/29']
+      mode: 'active'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 13
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'active'
+
+  - name: ENSURE PORTCHANNEL99 IS NOT PRESENT ON THE DEVICE
+    nxos_portchannel:
+      group: 99
+      members: ['Ethernet1/1','Ethernet1/2']
+      mode: 'passive'
+      host: "{{ inventory_hostname }}"
+      state: absent
+    register: data
+
+  - name: TEST 14
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state == {}
+
+  - name: ENSURE PORTCHANNEL101 IS PRESENT ON THE DEVICE WITH PROPER MIN_LINKS PARAM
+    nxos_portchannel:
+      group: 101
+      members: ['Ethernet1/1','Ethernet1/2', 'Ethernet1/3']
+      mode: 'active'
+      min_links: "2"
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 15
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == '101'
+        - data.end_state['mode'] == 'active'
+        - data.end_state['min_links'] == '2'
+        - "'Ethernet1/1' in data.end_state.get('members')"
+        - "'Ethernet1/2' in data.end_state.get('members')"
+        - "'Ethernet1/3' in data.end_state.get('members')"
+
+  - name: CHANGE PORTCHANNEL101 MODE TO PASSIVE
+    nxos_portchannel:
+      group: 101
+      members: ['Ethernet1/1','Ethernet1/2', 'Ethernet1/3']
+      mode: 'passive'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+
+  - name: TEST 16
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['group'] == '101'
+        - data.end_state['mode'] == 'passive'
+        - data.end_state['min_links'] == '2'
+        - "'Ethernet1/1' in data.end_state.get('members')"
+        - "'Ethernet1/2' in data.end_state.get('members')"
+        - "'Ethernet1/3' in data.end_state.get('members')"
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_portchannel:
+      group: 101
+      min_links: 3
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+    ignore_errors: true
+
+  - name: TEST 17
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_portchannel:
+      group: 101
+      mode: 'on'
+      host: "{{ inventory_hostname }}"
+      state: present
+    register: data
+    ignore_errors: true
+
+  - name: TEST 18
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE PORTCHANNEL101 IS NOT PRESENT ON THE DEVICE
+    nxos_portchannel:
+      group: 101
+      host: "{{ inventory_hostname }}"
+      state: absent
+    register: data
+
+  - name: TEST 19
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state == {}
+
+  - name: ATTEMPT TO REMOVE A NOT EXISTING PORTCHANNEL
+    nxos_portchannel:
+      group: 101
+      host: "{{ inventory_hostname }}"
+      state: absent
+    register: data
+
+  - name: TEST 20
+    assert:
+      that:
+        - data.changed == false
+        - data.end_state == {}
