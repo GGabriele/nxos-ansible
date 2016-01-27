@@ -1,0 +1,185 @@
+---
+
+- name: TESTING NXOS_NTP
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE NTP SERVER IS CONFIGURED
+    nxos_ntp: server=1.1.1.1 prefer=enabled state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['address'] == '1.1.1.1'
+        - data.end_state['peer_type'] == 'server'
+        - data.end_state['prefer'] == 'enabled'
+
+  - name: ENSURE NTP SERVER IS CONFIGURED WITH PROPER KEY_ID
+    nxos_ntp: server=1.1.1.1 prefer=enabled key_id=32 state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.existing['address'] == '1.1.1.1'
+        - data.existing['peer_type'] == 'server'
+        - data.existing['prefer'] == 'enabled'
+        - data.end_state['key_id'] == '32'
+
+  - name: ENSURE NTP SERVER IS NOT CONFIGURED
+    nxos_ntp: server=1.1.1.1 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == true
+        - "'address' not in data.end_state"
+        - "'prefer' not in data.end_state"
+        - "'key_id' not in data.end_state"
+        - "'peer_type' not in data.end_state"
+
+  - name: ENSURE NTP PEER IS CONFIGURED
+    nxos_ntp: peer=1.1.1.1 prefer=disabled state=present key_id=48 vrf_name=ntc host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['address'] == '1.1.1.1'
+        - data.end_state['peer_type'] == 'peer'
+        - data.end_state['prefer'] == 'disabled'
+        - data.end_state['vrf_name'] == 'ntc'
+        - data.end_state['key_id'] == '48'
+
+  - name: RE-ENSURE NTP PEER IS CONFIGURED
+    nxos_ntp: peer=1.1.1.1 prefer=disabled state=present key_id=48 vrf_name=ntc host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == false
+
+  - name: ENSURE NTP PEER IS NOT CONFIGURED
+    nxos_ntp: peer=1.1.1.1 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == true
+        - "'address' not in data.end_state"
+        - "'prefer' not in data.end_state"
+        - "'key_id' not in data.end_state"
+        - "'peer_type' not in data.end_state"
+
+  - name: ENSURE NTP PEER IS CONFIGURED WITH PROPER SOURCE INTERFACE
+    nxos_ntp: peer=1.1.1.1 state=present source_int=ethernet1/1 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 7
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['address'] == '1.1.1.1'
+        - data.end_state['peer_type'] == 'peer'
+        - data.end_state['prefer'] == 'disabled'
+        - data.end_state['source'] == 'ethernet1/1'
+        - data.end_state['source_type'] == 'source-interface'
+
+  - name: ENSURE NTP PEER IS CONFIGURED WITH PROPER SOURCE ADDRESS
+    nxos_ntp: peer=1.1.1.1 state=present source_addr=10.10.10.10 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 8
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['address'] == '1.1.1.1'
+        - data.end_state['peer_type'] == 'peer'
+        - data.end_state['prefer'] == 'disabled'
+        - data.end_state['source'] == '10.10.10.10'
+        - data.end_state['source_type'] == 'source'
+
+  - name: ENSURE NTP PEER IS NOT CONFIGURED
+    nxos_ntp: peer=1.1.1.1 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 9
+    assert:
+      that:
+        - data.changed == true
+        - "'address' not in data.end_state"
+        - "'prefer' not in data.end_state"
+        - "'peer_type' not in data.end_state"
+
+  - name: ENSURE PROPER SOURCE ADDRESS IS CONFIGURED
+    nxos_ntp: state=present source_addr=2.2.2.2 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 10
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['source'] == '2.2.2.2'
+        - data.end_state['source_type'] == 'source'
+
+  - name: ENSURE PROPER SOURCE INTERFACE IS CONFIGURED
+    nxos_ntp: state=present source_int=ethernet1/1 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 11
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['source'] == 'ethernet1/1'
+        - data.end_state['source_type'] == 'source-interface'
+
+  - name: REMOVE SOURCE INTERFACE
+    nxos_ntp: state=absent source_int=ethernet1/1 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 12
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state == {}
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_ntp: server=1.1.1.1 peer=2.2.2.2 prefer=enabled state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 13
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_ntp: key_id=32 prefer=enabled state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 14
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_ntp: server=1.1.1.1 key_id=32 state=present source_int=ethernet1/1 source_addr=2.2.2.2 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 15
+    assert:
+      that:
+        - data | failed
+
