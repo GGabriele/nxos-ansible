@@ -28,8 +28,10 @@ requirements:
     - NX-OS 6.1(2)I3(1)
     - pycsco
 notes:
-    - At most one of server or peer parameters may be given.
-    - At most one of source_addr and source_int parameters may be given.
+    - "server" and "peer" are mutually exclusive. You can use only one of
+      them at a time.
+    - "source_addr" and "source_int" are mutually exclusive. You can use only one of
+      them at a time.
     - When state=absent, a given NTP server or peer will be removed,
       regardless of other supplied parameters.
     - While username and password are not required params, they are
@@ -257,6 +259,11 @@ def get_ntp_peer(device, module):
             vrf_name = group_ntp['vrf_name']
             key_id = group_ntp['key_id']
 
+            if prefer is not None:
+                prefer = 'enabled'
+            else:
+                prefer = 'disabled'
+
             if address is not None:
                 peer_type = 'server'
             elif peer_address is not None:
@@ -266,28 +273,24 @@ def get_ntp_peer(device, module):
             args = dict(peer_type=peer_type, address=address, prefer=prefer,
                         vrf_name=vrf_name, key_id=key_id)
 
-            ntp_peer = dict((k, v) for k, v in args.iteritems() if v is not None)
+            ntp_peer = dict((k, v) for k, v in args.iteritems())
             ntp_peer_list.append(ntp_peer)
         except AttributeError:
             ntp_peer_list = []
-
-    for peer in ntp_peer_list:
-        try:
-            if peer['prefer']:
-                peer['prefer'] = 'enabled'
-        except:
-            peer['prefer'] = 'disabled'
 
     return ntp_peer_list
 
 
 def get_ntp_existing(device, address, peer_type, module):
     peer_dict = {}
+    peer_server_list = []
 
     peer_list = get_ntp_peer(device, module)
     for peer in peer_list:
         if peer['address'] == address:
             peer_dict.update(peer)
+        else:
+            peer_server_list.append(peer)
 
     source_type, source = get_ntp_source(device, module)
 
@@ -295,7 +298,7 @@ def get_ntp_existing(device, address, peer_type, module):
         peer_dict['source_type'] = source_type
         peer_dict['source'] = source
 
-    return peer_dict
+    return (peer_dict, peer_server_list)
 
 
 def set_ntp_server_peer(peer_type, address, prefer, key_id, vrf_name):
@@ -422,14 +425,15 @@ def main():
 
     proposed = dict((k, v) for k, v in args.iteritems() if v is not None)
 
-    existing = get_ntp_existing(device, address, peer_type, module)
+    existing, peer_server_list = get_ntp_existing(
+                                        device, address, peer_type, module)
+
     end_state = existing
     changed = False
     commands = []
 
     if state == 'present':
-        delta = dict(set(proposed.iteritems()).difference(
-            existing.iteritems()))
+        delta = dict(set(proposed.iteritems()).difference(existing.iteritems()))
         if delta:
             command = config_ntp(delta, existing)
             if command:
@@ -462,7 +466,7 @@ def main():
         else:
             changed = True
             device.config(cmds)
-            end_state = get_ntp_existing(device, address, peer_type, module)
+            end_state = get_ntp_existing(device, address, peer_type, module)[0]
 
     results = {}
     results['proposed'] = proposed
@@ -471,6 +475,7 @@ def main():
     results['commands'] = cmds
     results['changed'] = changed
     results['end_state'] = end_state
+    results['peer_server_list'] = peer_server_list
 
     module.exit_json(**results)
 

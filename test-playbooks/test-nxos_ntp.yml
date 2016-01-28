@@ -151,7 +151,6 @@
     assert:
       that:
         - data.changed == true
-        - data.end_state == {}
 
   - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
     nxos_ntp: server=1.1.1.1 peer=2.2.2.2 prefer=enabled state=present host={{ inventory_hostname }}
