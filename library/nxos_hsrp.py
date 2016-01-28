@@ -30,8 +30,6 @@ notes:
     - HSRP feature needs to be enabled first on the system
     - SVIs must exist before using this module
     - Interface must be a L3 port before using this module
-    - Even when md5 is selected, only UNENCRYPTED key strings are supported
-      in this release
     - While username and password are not required params, they are
       if you are not using the .netauth file.  .netauth file is recommended
       as it will clean up the each task in the playbook by not requiring
