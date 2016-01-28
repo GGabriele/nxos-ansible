@@ -1,0 +1,238 @@
+---
+
+- name: TESTING NXOS_NTP_AUTH
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE NTP AUTH IS CONFIGURED
+    nxos_ntp_auth: key_id=32 md5string=helloWorld trusted_key=true authentication=off state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['key_id'] == '32'
+        - data.end_state['trusted_key'] == 'true'
+        - data.end_state['authentication'] == 'off'
+
+  - name: ENSURE NTP AUTH IS CONFIGURED WITH AUTHENTICATION ON
+    nxos_ntp_auth: key_id=32 md5string=helloWorld trusted_key=true authentication=on state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['key_id'] == '32'
+        - data.end_state['trusted_key'] == 'true'
+        - data.end_state['authentication'] == 'on'
+
+  - name: ATTEMPT TO RECONFIGURE NTP AUTH
+    nxos_ntp_auth: key_id=32 md5string=helloWorld trusted_key=true authentication=on state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['key_id'] == '32'
+        - data.existing['trusted_key'] == 'true'
+        - data.existing['authentication'] == 'on'
+
+  - name: ENSURE NTP AUTH IS NOT CONFIGURED
+    nxos_ntp_auth: key_id=32 md5string=helloWorld trusted_key=true state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == true
+        - "'key_id' not in data.end_state"
+        - "'md5string' not in data.end_state"
+
+  - name: ENSURE NTP AUTH IS CONFIGURED
+    nxos_ntp_auth: key_id=48 md5string=Test trusted_key=false auth_type=encrypt state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['md5string'] == 'Test'
+        - data.end_state['key_id'] == '48'
+        - data.end_state['trusted_key'] == 'false'
+        - data.end_state['authentication'] == 'on'
+
+  - name: ATTEMPT TO RECONFIGURE NTP AUTH
+    nxos_ntp_auth: key_id=48 md5string=Test trusted_key=false auth_type=encrypt state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == false
+        - data.end_state['md5string'] == 'Test'
+        - data.existing['key_id'] == '48'
+        - data.existing['trusted_key'] == 'false'
+        - data.existing['authentication'] == 'on'
+
+  - name: ENSURE NTP AUTH IS NOT CONFIGURED
+    nxos_ntp_auth: key_id=48 md5string=Test trusted_key=false auth_type=encrypt state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 7
+    assert:
+      that:
+        - data.changed == true
+        - "'key_id' not in data.end_state"
+        - "'md5string' not in data.end_state"
+
+  - name: ENSURE IT FAILS ATTEMPTING TO REMOVE A NOT EXISTING KEY
+    nxos_ntp_auth: key_id=48 md5string=Test trusted_key=false auth_type=encrypt state=absent host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 8
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE NTP AUTH IS CONFIGURED
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest trusted_key=false auth_type=text authentication=off state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 9
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['key_id'] == '32'
+        - data.end_state['trusted_key'] == 'false'
+        - data.end_state['authentication'] == 'off'
+
+  - name: ATTEMPT TO RECONFIGURE NTP AUTH
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest trusted_key=false auth_type=text authentication=off state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 10
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['key_id'] == '32'
+        - data.existing['trusted_key'] == 'false'
+        - data.existing['authentication'] == 'off'
+
+  - name: ENSURE NTP AUTH IS CONFIGURED
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest trusted_key=false auth_type=text authentication=off state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 11
+    assert:
+      that:
+        - data.changed == true
+        - "'key_id' not in data.end_state"
+        - "'md5string' not in data.end_state"
+
+  - name: ENSURE IT FAILS ATTEMPTING TO REMOVE A NOT EXISTING KEY
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest trusted_key=false auth_type=text state=absent host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING MD5STRING PARAM
+    nxos_ntp_auth: key_id=32 auth_type=text host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 13
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING KEY_ID PARAM
+    nxos_ntp_auth: md5string=AnotherTest auth_type=text host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 14
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE AUTHENTICATION IS OFF
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest authentication=off state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 15
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['authentication'] == 'off'
+
+  - name: ENSURE AUTHENTICATION IS TURNED ON
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest authentication=off state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 16
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['authentication'] == 'on'
+
+  - name: ENSURE AUTHENTICATION IS TURNED ON
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest authentication=on state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 17
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['authentication'] == 'on'
+
+  - name: ENSURE AUTHENTICATION IS TURNED OFF
+    nxos_ntp_auth: key_id=32 md5string=AnotherTest authentication=on state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 18
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['authentication'] == 'off'
+
+  - name: ENSURE NTP AUTH IS CONFIGURED
+    nxos_ntp_auth: key_id=48 md5string=Test trusted_key=false state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 19
+    assert:
+      that:
+        - data.changed == true
+
+  - name: ATTEMPT TO RECONFIGURE NTP AUTH
+    nxos_ntp_auth: key_id=48 md5string=Test trusted_key=false state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 20
+    assert:
+      that:
+        - data.changed == false
+
+  - name: ENSURE NTP AUTH IS NOT CONFIGURED
+    nxos_ntp_auth: key_id=48 md5string=Test trusted_key=false state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 21
+    assert:
+      that:
+        - data.changed == true
+
+
+
+
