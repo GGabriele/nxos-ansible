@@ -11,7 +11,7 @@
     nxos_command: command='no feature vtp ;' host={{ inventory_hostname }} type=config
 
   - name: ENSURE FAILS DUE TO FEATURE CURRENTLY NOT ENABLED
-    nxos_vtp: domain=ntc state=present host={{ inventory_hostname }}
+    nxos_vtp_domain: domain=ntc host={{ inventory_hostname }}
     register: data
     ignore_errors: true
 
