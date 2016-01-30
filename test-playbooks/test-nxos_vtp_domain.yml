@@ -1,0 +1,68 @@
+---
+
+- name: TESTING NXOS_VTP_DOMAIN
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: PREPARING THE DEVICE DISABLING VTP
+    nxos_command: command='no feature vtp ;' host={{ inventory_hostname }} type=config
+
+  - name: ENSURE FAILS DUE TO FEATURE CURRENTLY NOT ENABLED
+    nxos_vtp: domain=ntc state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 1
+    assert:
+      that:
+        - data | failed
+
+  - name: PREPARING THE DEVICE ENABLING VTP
+    nxos_command: command='feature vtp ;' host={{ inventory_hostname }} type=config
+
+  - name: ENSURE VTP DOMAIN IS CONFIGURED
+    nxos_vtp_domain: domain=testing host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['domain'] == 'testing'
+        - data.end_state['version'] == '1'
+
+  - name: ENSURE VTP DOMAIN IS CHANGED
+    nxos_vtp_domain: domain=ntc host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['domain'] == 'ntc'
+        - data.end_state['version'] == '1'
+
+  - name: ATTEMPT TO RECONFIGURE VTP DOMAIN
+    nxos_vtp_domain: domain=ntc host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['domain'] == 'ntc'
+        - data.existing['version'] == '1'
+
+  - name: ENSURE VTP DOMAIN NAME IS CASE-SENSITIVE
+    nxos_vtp_domain: domain=NTC host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.existing['domain'] == 'ntc'
+        - data.end_state['domain'] == 'NTC'
