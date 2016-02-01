@@ -20,7 +20,7 @@
         - data.end_state['logging'] == false
 
   - name: CHANGE NTP STRATUM LEVEL
-    nxos_ntp_options: master=true stratum=7 logging=false host={{ inventory_hostname }}
+    nxos_ntp_options: master=true stratum=7 host={{ inventory_hostname }}
     register: data
 
   - name: TEST 2
@@ -44,7 +44,7 @@
         - data.existing['logging'] == false
 
   - name: CHANGE NTP LOGGING
-    nxos_ntp_options: master=true stratum=7 logging=true host={{ inventory_hostname }}
+    nxos_ntp_options: logging=true host={{ inventory_hostname }}
     register: data
 
   - name: TEST 4
