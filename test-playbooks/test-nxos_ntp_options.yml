@@ -1,0 +1,144 @@
+---
+
+- name: TESTING NXOS_NTP_OPTIONS
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE NTP MASTER, LOGGING AND STRATUS ARE CONFIGURED
+    nxos_ntp_options: master=true stratum=11 logging=false host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['master'] == true
+        - data.end_state['stratum'] == '11'
+        - data.end_state['logging'] == false
+
+  - name: CHANGE NTP STRATUM LEVEL
+    nxos_ntp_options: master=true stratum=7 logging=false host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['master'] == true
+        - data.end_state['stratum'] == '7'
+        - data.end_state['logging'] == false
+
+  - name: ATTEMPT TO RECONFIGURE NTP OPTIONS
+    nxos_ntp_options: master=true stratum=7 logging=false host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['master'] == true
+        - data.existing['stratum'] == '7'
+        - data.existing['logging'] == false
+
+  - name: CHANGE NTP LOGGING
+    nxos_ntp_options: master=true stratum=7 logging=true host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['master'] == true
+        - data.end_state['stratum'] == '7'
+        - data.end_state['logging'] == true
+
+  - name: CHANGE NTP MASTER STATUS
+    nxos_ntp_options: master=false stratum=7 logging=true host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['master'] == false
+        - data.end_state['stratum'] == None
+        - data.end_state['logging'] == true
+
+  - name: ENSURE NTP MASTER AND STRATUM ARE CONFIGURED
+    nxos_ntp_options: master=true stratum=9 logging=true host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['master'] == true
+        - data.end_state['stratum'] == '9'
+        - data.end_state['logging'] == true
+
+  - name: ENSURE NTP OPTIONS ARE FLIPPED
+    nxos_ntp_options: master=true stratum=9 logging=true state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 7
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['master'] == false
+        - data.end_state['stratum'] == None
+        - data.end_state['logging'] == false
+
+  - name: ENSURE NTP OPTIONS ARE FLIPPED AGAIN AND STRATUM CONFIGURED TO ITS DEFAULT VALUE
+    nxos_ntp_options: master=false logging=false state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 8
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['master'] == true
+        - data.end_state['stratum'] == '8'
+        - data.end_state['logging'] == true
+
+  - name: ENSURE IT FAILS DUE TO MISSING PARAMS
+    nxos_ntp_options: stratum=9 logging=false host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 9
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO NOT VALID STRATUM VALUE
+    nxos_ntp_options: master=true stratum=16 logging=false host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 10
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO NOT VALID STRATUM VALUE
+    nxos_ntp_options: master=true stratum=0 logging=false host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 11
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING PARAMS
+    nxos_ntp_options: host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
