@@ -1,0 +1,162 @@
+---
+
+- name: TESTING NXOS_AAA_SERVER
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: CONFIGURE RADIUS
+    nxos_aaa_server: server_type=radius timeout=11 deadtime=22 directed_request=enabled host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['deadtime'] == '22'
+        - data.end_state['directed_request'] == 'enabled'
+        - data.end_state['timeout'] == '11'
+
+  - name: CONFIGURE TACACS
+    nxos_aaa_server: server_type=tacacs timeout=8 deadtime=19 directed_request=disabled host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['deadtime'] == '19'
+        - data.end_state['directed_request'] == 'disabled'
+        - data.end_state['timeout'] == '8'
+
+  - name: ENSURE AAA GLOBAL KEY FOR RADIUS SERVER IS CONFIGURED
+    nxos_aaa_server: server_type=radius global_key=test-key encrypt_type=0 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == true
+
+  - name: ENSURE AAA GLOBAL KEY FOR RADIUS SERVER IS CONFIGURED AND ENCRYPTED
+    nxos_aaa_server: server_type=radius global_key=test-key encrypt_type=7 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['global_key'] == 'test-key'
+
+  - name: ENSURE AAA GLOBAL KEY FOR TACACS SERVER IS CONFIGURED
+    nxos_aaa_server: server_type=tacacs global_key=tacacs-key host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['global_key'] == 'tacacs-key'
+
+  - name: ENSURE AGAIN AAA GLOBAL KEY FOR TACACS SERVER IS CONFIGURED
+    nxos_aaa_server: server_type=tacacs global_key=tacacs-key host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['global_key'] == 'tacacs-key'
+
+  - name: ENSURE AAA GLOBAL KEY FOR TACACS SERVER IS CONFIGURED TO ITS DEFAULT VALUE
+    nxos_aaa_server: server_type=tacacs global_key=default state=default host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 7
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['global_key'] == 'unknown'
+
+  - name: ENSURE AAA TACACS DEADTIME AND TIMEOUT ARE CONFIGURED
+    nxos_aaa_server: server_type=tacacs deadtime=30 timeout=10 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 8
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['deadtime'] == '30'
+        - data.end_state['timeout'] == '10'
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED DEADTIME VALUE
+    nxos_aaa_server: server_type=tacacs deadtime=1500 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 9
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED TIMEOUT VALUE
+    nxos_aaa_server: server_type=tacacs timeout=70 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 10
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE AAA TACACS CONFIGURATION IS SET TO ITS DEFAULT VALUE
+    nxos_aaa_server: server_type=tacacs state=default host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 11
+    assert:
+      that:
+        - data.end_state['global_key'] == 'unknown'
+
+  - name: ENSURE IT FAILS DUE TO STATE=DEFAULT AND PARAM VALUES NOT EQUALS TO DEFAULT
+    nxos_aaa_server: server_type=radius deadtime=4 timeout=40 state=default host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE AAA RADIUS SERVER IS CONFIGURED TO ITS DEFAULT VALUE
+    nxos_aaa_server: server_type=radius global_key=default directed_request=default state=default host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 13
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['global_key'] == 'unknown'
+        - data.end_state['directed_request'] == 'disabled'
+
+  - name: ENSURE AAA RADIUS CONFIGURATION IS SET TO ITS DEFAULT VALUE
+    nxos_aaa_server: server_type=radius deadtime=default timeout=default state=default host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 14
+    assert:
+      that:
+        - data.end_state['deadtime'] == '0'
+        - data.end_state['timeout'] == '5'
+
+  - name: ENSURE IT FAILS DUE TO INVALID PARAM COMBINATION
+    nxos_aaa_server: server_type=radius encrypt_type=7 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 15
+    assert:
+      that:
+        - data | failed
