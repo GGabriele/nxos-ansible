@@ -417,7 +417,7 @@ def main():
     results = {}
     results['proposed'] = proposed
     results['existing'] = existing
-    results['state'] = module.params['state']
+    results['state'] = state
     results['commands'] = cmds
     results['changed'] = changed
     results['end_state'] = end_state
