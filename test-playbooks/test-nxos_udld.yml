@@ -1,0 +1,138 @@
+---
+
+- name: TESTING NXOS_UDLD
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE UDLD MESSAGE TIME IS SET 
+    nxos_udld: msg_time=30 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['msg_time'] == '30'
+
+  - name: ENSURE UDLD MESSAGE TIME IS REMOVED AND SET TO ITS DEFAULT VALUE 
+    nxos_udld: msg_time=30 state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['msg_time'] == '15'
+
+  - name: ENSURE UDLD MESSAGE TIME IS CHANGED AND AGGRESSIVE MODE IS ENABLED
+    nxos_udld: msg_time=40 aggressive=enabled host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['msg_time'] == '40'
+        - data.end_state['aggressive'] == 'enabled'
+
+  - name: ATTEMPT TO RECONFIGURE THE SAME UDLD PARAMS
+    nxos_udld: msg_time=40 aggressive=enabled host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['msg_time'] == '40'
+        - data.existing['aggressive'] == 'enabled'
+
+  - name: ENSURE RESET FLAG IS SET
+    nxos_udld: reset=true host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.existing['msg_time'] == '40'
+        - data.existing['aggressive'] == 'enabled'
+
+  - name: ENSURE UDLD AGGRESSIVE MODE IS DISABLED
+    nxos_udld: aggressive=disabled host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == true
+        - data.existing['msg_time'] == '40'
+        - data.end_state['aggressive'] == 'disabled'
+
+  - name: ENSURE IT FAILS DUE TO INVALID PARAMS COMBINATION
+    nxos_udld: aggressive=disabled state=absent host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 7
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO INVALID PARAMS COMBINATION
+    nxos_udld: reset=true state=absent host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 8
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO TOO LITTLE MESSAGE TIME VALUE
+    nxos_udld: msg_time=2 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 9
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO TOO BIG MESSAGE TIME VALUE
+    nxos_udld: msg_time=100 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 10
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO INVALID MESSAGE TIME DATA TYPE
+    nxos_udld: msg_time=ten host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 11
+    assert:
+      that:
+        - data | failed
+
+  - name: DISABLING UDLD FEATURE
+    nxos_command: command='no feature udld' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE IT FAILS DUE TO DISABLED UDLD FEATURE
+    nxos_udld: msg_time=10 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENABLING UDLD FEATURE
+    nxos_command: command='feature udld' type=config host={{ inventory_hostname }}
