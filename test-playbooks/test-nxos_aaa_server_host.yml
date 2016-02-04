@@ -7,35 +7,214 @@
 
 
   tasks:
-  - name: CONFIGURE RADIUS
+  - name: CONFIGURE RADIUS HOST
     nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 acct_port=2084 timeout=10 host={{ inventory_hostname }}
     register: data
-
-  - debug: var=data
 
   - name: TEST 1
     assert:
       that:
+        - data.changed == true
         - data.end_state['timeout'] == '10'
         - data.end_state['acct_port'] == '2084'
 
-  - name: CONFIGURE RADIUS
-    nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 key=ciao encrypt_type=7 host={{ inventory_hostname }}
+  - name: ATTEMPT TO RECONFIGURE SAME RADIUS HOST
+    nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 acct_port=2084 timeout=10 host={{ inventory_hostname }}
     register: data
-
-  - debug: var=data
 
   - name: TEST 2
     assert:
       that:
-        - data.end_state['key'] == 'ciao'
+        - data.changed == false
+        - data.existing['timeout'] == '10'
+        - data.existing['acct_port'] == '2084'
 
-  - name: CONFIGURE RADIUS
-    nxos_aaa_server_host: state=present server_type=tacacs tacacs_port=89 timeout=10 address=5.6.7.8 host={{ inventory_hostname }}
+  - name: PREPARE THE DEVICE
+    nxos_command: command='tacacs-server host 1.2.3.4 key 7 "hello"' type=config host={{ inventory_hostname }}
+
+  - name: CONFIGURE RADIUS ENCRYPTION AND KEY
+    nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 key=kapqg encrypt_type=7 host={{ inventory_hostname }}
     register: data
 
   - name: TEST 3
     assert:
       that:
-        - data.end_state['tacacs_port'] == '89'
+        - data.changed == true
+        - data.end_state['key'] == 'kapqg'
+
+  - name: ATTEMPT TO RECONFIGURE THE SAME RADIUS KEY
+    nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 key=kapqg encrypt_type=7 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['key'] == 'kapqg'
+
+  - name: CONFIGURE AUTHENTICATION PORT FOR RADIUS HOST
+    nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 auth_port=85 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['auth_port'] == '85'
+
+  - name: CONFIGURE TACACS HOST
+    nxos_aaa_server_host: state=present server_type=tacacs tacacs_port=89 timeout=10 address=5.6.7.8 host={{ inventory_hostname }}
+    register: data
+
+  - debug: var=data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['port'] == '89'
         - data.end_state['timeout'] == '10'
+
+  - name: REMOVE TACACS HOST
+    nxos_aaa_server_host: state=absent server_type=tacacs tacacs_port=89 timeout=10 address=5.6.7.8 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 7
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['auth_port'] == None
+        - data.end_state['acct_port'] == None
+        - data.end_state['key'] == None
+        - data.end_state['port'] == None
+        - data.end_state['timeout'] == None
+
+  - name: REMOVE RADIUS
+    nxos_aaa_server_host: state=absent server_type=radius address=1.2.3.4 acct_port=2084 timeout=10 key=kapqg host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 8
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['acct_port'] == None
+        - data.end_state['timeout'] == None
+        - data.end_state['key'] == None
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_aaa_server_host: server_type=radius address=1.2.3.4 tacacs_port=2084 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 9
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_aaa_server_host: server_type=tacacs address=1.2.3.4 acct_port=2084 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 10
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_aaa_server_host: server_type=radius address=1.2.3.4 tacacs_port=2084 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 11
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_aaa_server_host: server_type=tacacs address=1.2.3.4 auth_port=2084 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED PARAMS COMBINATION
+    nxos_aaa_server_host: server_type=tacacs address=1.2.3.4 encrypt_type=7 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED ENCRYPTION TYPE
+    nxos_aaa_server_host: server_type=tacacs address=1.2.3.4 key=test encrypt_type=0 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 13
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO TOO LITTLE TIMEOUT VALUE
+    nxos_aaa_server_host: server_type=tacacs address=1.2.3.4 timeout=0 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 14
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO TOO BIG TIMEOUT VALUE
+    nxos_aaa_server_host: server_type=tacacs address=1.2.3.4 timeout=70 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 15
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO TOO LITTLE TIMEOUT VALUE
+    nxos_aaa_server_host: server_type=tacacs address=1.2.3.4 timeout=0 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 16
+    assert:
+      that:
+        - data | failed
+
+  - name: REMOVE RADIUS HOST
+    nxos_aaa_server_host: state=absent server_type=radius address=1.2.3.4 auth_port=85 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 17
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['auth_port'] == None
+        - data.end_state['acct_port'] == None
+        - data.end_state['key'] == None
+        - data.end_state['port'] == None
+        - data.end_state['timeout'] == None
+
+  - name: ATTEMPT TO REMOVE RADIUS HOST AGAIN
+    nxos_aaa_server_host: state=absent server_type=radius address=1.2.3.4 auth_port=85 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 18
+    assert:
+      that:
+        - data.changed == false 
+        - data.existing['auth_port'] == None
+        - data.existing['acct_port'] == None
+        - data.existing['key'] == None
+        - data.existing['port'] == None
+        - data.existing['timeout'] == None
