@@ -1,0 +1,153 @@
+---
+
+- name: TESTING NXOS_UDLD
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: ENSURE UDLD INTERFACE MODE IS ENABLED FOR ETHERNET1/1 (COPPER)
+    nxos_udld_interface: interface=Ethernet1/1 mode=enabled state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'enabled'
+
+  - name: ATTEMPT TO RECONFIGURE THE SAME UDLD INTERFACE MODE
+    nxos_udld_interface: interface=Ethernet1/1 mode=enabled state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['mode'] == 'enabled'
+
+  - name: ENSURE UDLD INTERFACE MODE ENABLED IS REMOVED
+    nxos_udld_interface: interface=Ethernet1/1 mode=enabled state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'disabled'
+
+  - name: ATTEMPT TO RECONFIGURE THE SAME UDLD INTERFACE MODE
+    nxos_udld_interface: interface=Ethernet1/1 mode=disabled state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 4
+    assert:
+      that:
+        - data.changed == false
+        - data.existing['mode'] == 'disabled'
+
+  - name: ENSURE UDLD INTERFACE MODE IS AGGRESSIVE
+    nxos_udld_interface: interface=Ethernet1/1 mode=aggressive state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 5
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'aggressive'
+
+  - name: ENSURE UDLD INTERFACE MODE AGGRESSIVE IS REMOVED
+    nxos_udld_interface: interface=Ethernet1/1 mode=aggressive state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 6
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'disabled'
+
+  - name: ENSURE UDLD INTERFACE MODE ENABLED IS CONFIGURED FOR ETHERNET2/1 (NOT COPPER)
+    nxos_udld_interface: interface=Ethernet2/1 mode=enabled state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 7
+    assert:
+      that:
+        - data.end_state['mode'] == 'enabled'
+
+  - name: ENSURE UDLD INTERFACE MODE ENABLED IS REMOVED FOR ETHERNET2/1 (NOT COPPER)
+    nxos_udld_interface: interface=Ethernet2/1 mode=enabled state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 8
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'disabled'
+
+  - name: ENSURE UDLD INTERFACE MODE IS AGGRESSIVE FOR ETHERNET2/1 (NOT COPPER)
+    nxos_udld_interface: interface=Ethernet2/1 mode=aggressive state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 9
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'aggressive'
+
+  - name: ENSURE UDLD INTERFACE MODE AGGRESSIVE IS DISABLED FOR ETHERNET2/1 (NOT COPPER)
+    nxos_udld_interface: interface=Ethernet2/1 mode=aggressive state=absent host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 10
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'enabled'
+
+  - name: ENSURE UDLD INTERFACE MODE DISABLED IS CONFIGURED FOR ETHERNET2/1 (NOT COPPER)
+    nxos_udld_interface: interface=Ethernet2/1 mode=disabled state=present host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 11
+    assert:
+      that:
+        - data.changed == true
+        - data.end_state['mode'] == 'disabled'
+
+  - name: ENSURE IT FAILS DUE TO UNSUPPORTED INTERFACE
+    nxos_udld_interface: interface=loopback10 mode=disabled state=present host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 12
+    assert:
+      that:
+        - data | failed
+
+  - name: ENSURE IT FAILS DUE TO MISSING PARAMS
+    nxos_udld_interface: interface=Ethernet2/1 host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 13
+    assert:
+      that:
+        - data | failed
+
+  - name: DISABLING UDLD FEATURE
+    nxos_command: command='no feature udld' type=config host={{ inventory_hostname }}
+
+  - name: ENSURE IT FAILS DUE TO DISABLED UDLD FEATURE
+    nxos_udld: interface=Ethernet2/1 mode=disabled host={{ inventory_hostname }}
+    register: data
+    ignore_errors: true
+
+  - name: TEST 14
+    assert:
+      that:
+        - data | failed
+
+  - name: ENABLING UDLD FEATURE
+    nxos_command: command='feature udld' type=config host={{ inventory_hostname }}
