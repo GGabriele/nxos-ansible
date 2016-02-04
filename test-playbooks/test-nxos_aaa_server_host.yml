@@ -1,0 +1,41 @@
+---
+
+- name: TESTING NXOS_AAA_SERVER
+  hosts: n9k2
+  connection: local
+  gather_facts: no
+
+
+  tasks:
+  - name: CONFIGURE RADIUS
+    nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 acct_port=2084 timeout=10 host={{ inventory_hostname }}
+    register: data
+
+  - debug: var=data
+
+  - name: TEST 1
+    assert:
+      that:
+        - data.end_state['timeout'] == '10'
+        - data.end_state['acct_port'] == '2084'
+
+  - name: CONFIGURE RADIUS
+    nxos_aaa_server_host: state=present server_type=radius address=1.2.3.4 key=ciao encrypt_type=7 host={{ inventory_hostname }}
+    register: data
+
+  - debug: var=data
+
+  - name: TEST 2
+    assert:
+      that:
+        - data.end_state['key'] == 'ciao'
+
+  - name: CONFIGURE RADIUS
+    nxos_aaa_server_host: state=present server_type=tacacs tacacs_port=89 timeout=10 address=5.6.7.8 host={{ inventory_hostname }}
+    register: data
+
+  - name: TEST 3
+    assert:
+      that:
+        - data.end_state['tacacs_port'] == '89'
+        - data.end_state['timeout'] == '10'
