@@ -165,10 +165,10 @@ def command_list_to_string(command_list):
         return ''
 
 
-def temp_parsed_data_from_device(device, command):
+def temp_parsed_data_from_device(device, command, module):
     try:
         data = device.show(command, text=True)
-    except:
+    except CLIError as clie:
         module.fail_json(
             msg='Error sending {0}'.format(command),
             error=str(clie))
@@ -181,7 +181,7 @@ def temp_parsed_data_from_device(device, command):
 def get_available_features(device, feature, module):
     available_features = {}
     command = 'show feature'
-    body = temp_parsed_data_from_device(device, command)
+    body = temp_parsed_data_from_device(device, command, module)
 
     if body:
         splitted_body = body.split('\n')
